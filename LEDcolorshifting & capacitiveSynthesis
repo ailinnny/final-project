@@ -1,0 +1,86 @@
+
+
+#include <CapacitiveSensor.h> // Use the capacitive sensing library.
+#include <MozziGuts.h>
+#include <Oscil.h> // oscillator 
+#include <tables/cos2048_int8.h> // table for Oscils to play
+#include <AutoMap.h> // maps unpredictable inputs to a range
+
+
+// desired carrier frequency max and min, for AutoMap
+const int MIN_CARRIER_FREQ = 22;
+const int MAX_CARRIER_FREQ = 440;
+
+// desired intensity max and min, for AutoMap, note they're inverted for reverse dynamics
+const int MIN_INTENSITY = 330;
+const int MAX_INTENSITY = 10;
+
+AutoMap kMapCarrierFreq(0,10000,MIN_CARRIER_FREQ,MAX_CARRIER_FREQ);
+AutoMap kMapIntensity(0,5000,MIN_INTENSITY,MAX_INTENSITY);
+
+CapacitiveSensor touch = CapacitiveSensor(11, 10); // 10MOhms resistor between digital pin 11 and 10, 10 is the sensor pin.
+
+long touchVal = 0; // Variable to store the touch sensor's value
+int freqVal = 0; // Variable to store the mapped touch sensor's value - to be later used as frequency modulator
+
+Oscil<COS2048_NUM_CELLS, AUDIO_RATE> aCarrier(COS2048_DATA);
+Oscil<COS2048_NUM_CELLS, AUDIO_RATE> aModulator(COS2048_DATA);
+
+int mod_ratio = 3; // harmonics
+long fm_intensity; // carries control info from updateControl() to updateAudio()
+
+
+
+#define GreenPin 3
+#define BluePin 5
+
+
+void setup(){
+  pinMode(GreenPin, OUTPUT);
+  pinMode(BluePin, OUTPUT);
+  pinMode(9,OUTPUT);
+ startMozzi();
+ Serial.begin(9600);
+ analogWrite(GreenPin,0);
+ analogWrite(BluePin,0);
+}
+
+void updateControl(){
+  // read the knob
+   touchVal = touch.capacitiveSensor(30); // read the right sensor's value
+
+  Serial.println(touchVal);
+
+  //analogWrite(BluePin,touchVal);
+  //analogWrite(GreenPin,touchVal);
+  
+  if(touchVal>80){
+    analogWrite(GreenPin,250);
+  }else{
+    analogWrite(GreenPin,9);
+  }
+
+  // map the knob to carrier frequency
+  freqVal = kMapCarrierFreq(touchVal);
+  
+  //calculate the modulation frequency to stay in ratio
+  int mod_freq = freqVal * mod_ratio;
+  
+  // set the FM oscillator frequencies to the calculated values
+  aCarrier.setFreq(freqVal); 
+  aModulator.setFreq(mod_freq);
+  
+  fm_intensity = kMapIntensity(freqVal);
+  //delay(1);
+}
+
+int updateAudio(){
+  long modulation = fm_intensity * aModulator.next();
+  return aCarrier.phMod(modulation); // phMod does the FM
+}
+
+
+void loop(){
+  audioHook(); 
+}
+
