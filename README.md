@@ -1,2 +1,2 @@
-# final-project
-LED Cloud-Connected Cloud that changes color based on real time weather data 
+# DXARTS 490B Final-project
+LED Connected Cloud that changes color from light blue to dark blue (also the intensity&frequency of the noise)  when touching the sensor
